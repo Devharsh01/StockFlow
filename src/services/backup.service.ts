@@ -140,19 +140,35 @@ export class BackupService {
     // Filter consignments belonging to this store
     const storeConsignments = newConsignments.filter((c) => c.product?.storeId === storeId);
 
-    // If no new bills and no new consignments
+    // If no new bills and no new consignments, log backup check so lastBackupAt is updated
     if (newBills.length === 0 && storeConsignments.length === 0) {
+      const completedAt = new Date();
+
+      await db.insert(backupLogs).values({
+        storeId,
+        startedAt,
+        completedAt,
+        billsCount: 0,
+        consignmentsCount: 0,
+        lastBackupCutoff: completedAt,
+        status: 'success',
+        errorMessage: null,
+        triggeredBy: userId,
+      });
+
       return {
         success: true,
         message: lastCutoff
-          ? `No new bills or consignments found since last backup at ${new Date(lastCutoff).toLocaleString('en-IN')}.`
-          : 'No bills or consignments available to backup yet.',
+          ? `No new bills or consignments found. Backup timestamp updated to ${completedAt.toLocaleString('en-IN')}.`
+          : `Data is up to date as of ${completedAt.toLocaleString('en-IN')}.`,
         billsCount: 0,
         consignmentsCount: 0,
         lastBackupCutoff: lastCutoff ? new Date(lastCutoff).toISOString() : null,
-        sheetsSynced: false,
+        newBackupCutoff: completedAt.toISOString(),
+        sheetsSynced: true,
       };
     }
+
 
     const backupTimestampStr = startedAt.toLocaleString('en-IN');
 
