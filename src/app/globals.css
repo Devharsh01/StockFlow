@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  /* Central Brand Colors */
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #4f46e5;
+  --color-brand-600: #4338ca;
+  --color-brand-700: #3730a3;
+
+  /* App Backgrounds & Surfaces */
+  --color-app-bg: #f9fafb;
+  --color-app-surface: #ffffff;
+  
+  /* Text */
+  --color-app-text: #111827;
+  --color-app-muted: #6b7280;
+  
+  /* Borders */
+  --color-app-border: #e5e7eb;
+
+  /* Status Colors */
+  --color-status-success: #10b981;
+  --color-status-success-bg: #d1fae5;
+  --color-status-warning: #f59e0b;
+  --color-status-warning-bg: #fef3c7;
+  --color-status-danger: #ef4444;
+  --color-status-danger-bg: #fee2e2;
+
+  /* Subtle Premium Shadows */
+  --shadow-premium: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+  --shadow-premium-hover: 0 20px 50px -10px rgba(0, 0, 0, 0.08);
+
+  /* Central Transitions */
+  --default-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-app-bg);
+    color: var(--color-app-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide scrollbar for horizontal scroll elements (date presets) */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Better touch scrolling on iOS */
+.overflow-x-auto, .overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+}
