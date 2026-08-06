@@ -37,3 +37,11 @@ pnpm-debug.log*
 
 # Vercel deployment metadata
 .vercel
+
+# Service worker / PWA generated files
+public/sw.js
+public/sw.js.map
+public/workbox-*.js
+public/workbox-*.js.map
+public/fallback-*.js
+
