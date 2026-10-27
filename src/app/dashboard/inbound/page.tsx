@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PackagePlus, CheckCircle2, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { PackagePlus, CheckCircle2, AlertCircle, Plus, Trash2, Package } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Label } from '@/components/ui/Input';
 import { Autocomplete, Option } from '@/components/ui/Autocomplete';
+import { CreateProductModal, ProductInitialData } from '@/components/products/CreateProductModal';
 import { apiFetch } from '@/lib/api-client';
 
 type InboundRow = {
@@ -23,10 +24,67 @@ export default function InboundPage() {
   const [supplierName, setSupplierName] = useState<string>('');
   const [formKey, setFormKey] = useState(0);
 
+  // Create Product Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [targetRowIdForCreate, setTargetRowIdForCreate] = useState<string | null>(null);
+  const [createInitialData, setCreateInitialData] = useState<ProductInitialData | undefined>(undefined);
+
   // Rows state for multi-item consignment
   const [rows, setRows] = useState<InboundRow[]>([
     { id: 'row-1', productId: '', selectedProduct: null, quantity: '1', costPrice: '' },
   ]);
+
+  const handleOpenCreateProduct = (rowId?: string, queryText?: string) => {
+    const targetId = rowId || (rows[0] ? rows[0].id : null);
+    const targetRow = rows.find((r) => r.id === targetId);
+    setTargetRowIdForCreate(targetId);
+    setCreateInitialData({
+      name: queryText || '',
+      estimatedCostPrice: targetRow?.costPrice || '',
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleProductCreated = (newProduct: any) => {
+    if (targetRowIdForCreate) {
+      setRows((prev) =>
+        prev.map((row) => {
+          if (row.id !== targetRowIdForCreate) return row;
+
+          const updatedCost =
+            newProduct.estimatedCostPrice !== null && newProduct.estimatedCostPrice !== undefined
+              ? newProduct.estimatedCostPrice.toString()
+              : newProduct.costPrice !== null && newProduct.costPrice !== undefined
+              ? newProduct.costPrice.toString()
+              : row.costPrice && row.costPrice.trim() !== ''
+              ? row.costPrice
+              : '';
+
+          return {
+            ...row,
+            productId: newProduct.id,
+            selectedProduct: {
+              id: newProduct.id,
+              label: newProduct.name,
+              subLabel: newProduct.sku
+                ? `SKU: ${newProduct.sku} | Stock: ${newProduct.currentStockQty || 0}`
+                : `Stock: ${newProduct.currentStockQty || 0}`,
+              sellingPrice: newProduct.sellingPrice,
+              estimatedCostPrice: newProduct.estimatedCostPrice,
+              costPrice: newProduct.estimatedCostPrice,
+              ...newProduct,
+            },
+            costPrice: updatedCost,
+          };
+        })
+      );
+    }
+
+    setMessage({
+      type: 'success',
+      text: `Product "${newProduct.name}" created and selected!`,
+    });
+  };
 
   const fetchProducts = async (query: string): Promise<Option[]> => {
     try {
@@ -65,10 +123,18 @@ export default function InboundPage() {
         if (row.id !== id) return row;
 
         if (field === 'selectedProduct') {
+          const autoCost =
+            value?.estimatedCostPrice !== null && value?.estimatedCostPrice !== undefined
+              ? String(value.estimatedCostPrice)
+              : value?.costPrice !== null && value?.costPrice !== undefined
+              ? String(value.costPrice)
+              : '';
+
           return {
             ...row,
             selectedProduct: value,
             productId: value ? value.id : '',
+            costPrice: value ? (autoCost !== '' ? autoCost : '') : '',
           };
         }
 
@@ -97,9 +163,6 @@ export default function InboundPage() {
       const cost = Number(row.costPrice);
       if (isNaN(qty) || qty <= 0) return false;
       if (isNaN(cost) || cost < 0) return false;
-      if (row.selectedProduct && cost > Number(row.selectedProduct.sellingPrice)) {
-        return false;
-      }
       return true;
     });
 
@@ -220,11 +283,6 @@ export default function InboundPage() {
                   const lineCost = Number(row.costPrice) || 0;
                   const lineTotal = lineQty * lineCost;
 
-                  const isCostExcess =
-                    row.selectedProduct &&
-                    !isNaN(lineCost) &&
-                    lineCost > Number(row.selectedProduct.sellingPrice);
-
                   return (
                     <motion.div
                       key={row.id}
@@ -263,12 +321,25 @@ export default function InboundPage() {
                       <div className="space-y-2.5 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-3 sm:items-start">
                         {/* Product */}
                         <div className="sm:col-span-6 space-y-1">
-                          <Label className="text-xs font-semibold text-gray-700">Product *</Label>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-gray-700">Product *</Label>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCreateProduct(row.id)}
+                              className="text-[11px] font-semibold text-[var(--color-brand-600)] hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              New Product
+                            </button>
+                          </div>
                           <Autocomplete
-                            placeholder="Search product..."
+                            placeholder="Search product name or SKU..."
+                            value={row.selectedProduct?.label || row.selectedProduct?.name || ''}
                             fetchOptions={fetchProducts}
                             allowCustomValue={false}
                             onChange={(val, opt) => handleUpdateRow(row.id, 'selectedProduct', opt)}
+                            onCreateNew={(query) => handleOpenCreateProduct(row.id, query)}
+                            createNewText={query => `Create new product "${query}"`}
                           />
                         </div>
 
@@ -290,7 +361,7 @@ export default function InboundPage() {
 
                           {/* Cost Price */}
                           <div className="sm:col-span-3 space-y-1">
-                            <Label className="text-xs font-semibold text-gray-700">Cost / Unit (₹) *</Label>
+                            <Label className="text-xs font-semibold text-gray-700">Cost Price (CP) (₹) *</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -304,17 +375,6 @@ export default function InboundPage() {
                           </div>
                         </div>
                       </div>
-
-                      {/* Cost excess warning */}
-                      {isCostExcess && (
-                        <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px] font-semibold flex items-center gap-1.5">
-                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span>
-                            Cost ({formatCurrency(lineCost)}) exceeds selling price of{' '}
-                            {formatCurrency(Number(row.selectedProduct.sellingPrice))}.
-                          </span>
-                        </div>
-                      )}
                     </motion.div>
                   );
                 })}
@@ -371,6 +431,17 @@ export default function InboundPage() {
           </CardContent>
         </Card>
       </form>
+
+      {/* Inline Create Product Modal */}
+      <CreateProductModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleProductCreated}
+        initialData={createInitialData}
+        context="inbound"
+        title="Create & Link New Product"
+        subtitle="Add product to catalog and link directly to this stock-in item"
+      />
     </motion.div>
   );
 }

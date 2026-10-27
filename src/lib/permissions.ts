@@ -14,7 +14,7 @@ export type Permission =
   | 'canApplyDiscount'
   | 'canRecordPayments';
 
-export async function requirePermission(request: Request, requiredPermission: Permission) {
+export async function requirePermission(request: Request, requiredPermission: Permission | Permission[]) {
   const userId = request.headers.get('x-user-id');
   const storeId = request.headers.get('x-store-id');
 
@@ -40,8 +40,11 @@ export async function requirePermission(request: Request, requiredPermission: Pe
     return { authorized: false, error: 'Unauthorized: Role not found' };
   }
 
-  // 2. Real-time Database Check for Specific Permission Flag
-  if (roleRecord[requiredPermission] !== true) {
+  // 2. Real-time Database Check for Specific Permission Flag(s)
+  const permissions = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
+  const hasPermission = permissions.some((perm) => roleRecord[perm] === true);
+
+  if (!hasPermission) {
     return { authorized: false, error: 'Access Denied: Your permission for this action has been revoked by an administrator.' };
   }
 

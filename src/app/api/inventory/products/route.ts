@@ -36,11 +36,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { authorized, error, user } = await requirePermission(request, 'canManageProducts');
+    const { authorized, error, user } = await requirePermission(request, ['canManageProducts', 'canRecordStockIn', 'canCreateBills']);
     if (!authorized) return errorResponse(error!, 403);
 
     const body = await request.json();
-    const { categoryId, name, sku, unit, sellingPrice, taxRate, estimatedCostPrice } = body;
+    const { categoryId, name, sku, unit, sellingPrice, taxRate, estimatedCostPrice, costPrice } = body;
+    const finalCostPrice = estimatedCostPrice !== undefined ? estimatedCostPrice : (costPrice !== undefined ? costPrice : null);
 
     if (!categoryId || !name || !unit || sellingPrice == null || !sku) {
       return errorResponse('Missing required product fields (SKU/Barcode is compulsory)');
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
       unit,
       sellingPrice,
       taxRate,
-      estimatedCostPrice,
+      estimatedCostPrice: finalCostPrice,
     }).returning();
 
     return successResponse(product, 201);

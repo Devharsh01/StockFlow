@@ -1,73 +1,108 @@
 import { db } from './index';
 import { roles, stores, users } from './schema';
+import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcryptjs';
 
-async function main() {
-  console.log('Seeding database...');
+async function seedAdminOnly() {
+  console.log('🌱 Starting admin seed process...');
 
-  // Create default store
-  const [store] = await db.insert(stores).values({
-    name: 'Main Store',
-    address: '123 Retail Ave',
-    phone: '555-0100',
-  }).returning();
+  try {
+    // 1. Ensure Main Store exists
+    let store = await db.query.stores.findFirst({
+      where: eq(stores.name, 'Main Store'),
+    });
 
-  console.log(`Created store: ${store.name}`);
+    if (!store) {
+      const [newStore] = await db
+        .insert(stores)
+        .values({
+          name: 'Main Store',
+          address: '123 Retail Street',
+          phone: '555-0100',
+        })
+        .returning();
+      store = newStore;
+      console.log(`✅ Created Store: ${store.name}`);
+    } else {
+      console.log(`ℹ️ Existing Store found: ${store.name}`);
+    }
 
-  // Create Admin Role
-  const [adminRole] = await db.insert(roles).values({
-    name: 'Admin',
-    description: 'Administrator with full access',
-    canCreateBills: true,
-    canViewStock: true,
-    canManageProducts: true,
-    canDeleteProducts: true,
-    canRecordStockIn: true,
-    canViewCostAndProfit: true,
-    canViewReports: true,
-    canManageUsers: true,
-    canApplyDiscount: true,
-    canRecordPayments: true,
-  }).returning();
+    // 2. Ensure Admin Role exists
+    let adminRole = await db.query.roles.findFirst({
+      where: eq(roles.name, 'Admin'),
+    });
 
-  console.log(`Created role: ${adminRole.name}`);
+    if (!adminRole) {
+      const [newRole] = await db
+        .insert(roles)
+        .values({
+          name: 'Admin',
+          description: 'Administrator with full access',
+          canCreateBills: true,
+          canViewStock: true,
+          canManageProducts: true,
+          canDeleteProducts: true,
+          canRecordStockIn: true,
+          canViewCostAndProfit: true,
+          canViewReports: true,
+          canManageUsers: true,
+          canApplyDiscount: true,
+          canRecordPayments: true,
+        })
+        .returning();
+      adminRole = newRole;
+      console.log(`✅ Created Role: ${adminRole.name}`);
+    } else {
+      console.log(`ℹ️ Existing Role found: ${adminRole.name}`);
+    }
 
-  // Create Staff Role
-  const [staffRole] = await db.insert(roles).values({
-    name: 'Staff',
-    description: 'Standard staff member',
-    canCreateBills: true,
-    canViewStock: true,
-    canManageProducts: false,
-    canDeleteProducts: false,
-    canRecordStockIn: false,
-    canViewCostAndProfit: false,
-    canViewReports: false,
-    canManageUsers: false,
-    canApplyDiscount: true,
-    canRecordPayments: true,
-  }).returning();
+    // 3. Ensure Admin User exists
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    const password = process.env.ADMIN_PASSWORD || 'admin123';
 
-  console.log(`Created role: ${staffRole.name}`);
+    let adminUser = await db.query.users.findFirst({
+      where: eq(users.username, username),
+    });
 
-  // Create Admin User
-  const passwordHash = await bcrypt.hash('admin123', 10);
-  const [adminUser] = await db.insert(users).values({
-    storeId: store.id,
-    roleId: adminRole.id,
-    name: 'Store Admin',
-    username: 'admin',
-    passwordHash,
-    active: true,
-  }).returning();
+    const passwordHash = await bcrypt.hash(password, 10);
 
-  console.log(`Created admin user: ${adminUser.username}`);
+    if (!adminUser) {
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          storeId: store.id,
+          roleId: adminRole.id,
+          name: 'System Admin',
+          username,
+          passwordHash,
+          active: true,
+        })
+        .returning();
+      adminUser = newUser;
+      console.log(`✅ Created Admin User: ${adminUser.username}`);
+    } else {
+      // Update password hash if existing user
+      await db
+        .update(users)
+        .set({
+          passwordHash,
+          roleId: adminRole.id,
+          storeId: store.id,
+          active: true,
+        })
+        .where(eq(users.id, adminUser.id));
+      console.log(`🔄 Updated Admin User credentials: ${adminUser.username}`);
+    }
 
-  console.log('Seeding complete!');
+    console.log('\n🎉 Admin seed completed successfully!');
+    console.log(`   Username: ${username}`);
+    console.log(`   Password: ${password}`);
+  } catch (error) {
+    console.error('❌ Error during admin seed:', error);
+    process.exit(1);
+  }
+
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error('Error seeding database:', err);
-  process.exit(1);
-});
+seedAdminOnly();

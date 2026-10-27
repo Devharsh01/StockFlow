@@ -83,9 +83,10 @@ export default function ProductsPage() {
     fetchProfile();
   }, []);
 
-  const hasActiveFilters = Boolean(
-    searchQuery || filterCategory || selectedFilterCategoryId || filterStockStatus || filterPriceMin || filterPriceMax
+  const hasAdvancedFilters = Boolean(
+    filterCategory || selectedFilterCategoryId || filterStockStatus || filterPriceMin || filterPriceMax
   );
+  const hasActiveFilters = Boolean(searchQuery || hasAdvancedFilters);
 
   const clearAllFilters = () => {
     setSearchQuery('');
@@ -393,30 +394,52 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-3 self-start sm:self-auto">
-          <Button
-            variant={showFilters ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="gap-2 text-xs cursor-pointer"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-[var(--color-brand-500)] text-white rounded-full leading-none">
-                !
-              </span>
-            )}
-          </Button>
-
-          <Button size="sm" className="gap-2 text-xs cursor-pointer font-bold" onClick={() => setIsAddModalOpen(true)}>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button size="sm" className="gap-2 text-xs cursor-pointer font-bold bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-white shadow-sm" onClick={() => setIsAddModalOpen(true)}>
             <Plus className="w-4 h-4" />
             Add Product
           </Button>
         </div>
       </div>
 
-      {/* Filter Panel */}
+      {/* Always Visible Search & Filters Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Search by product name or SKU..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-8 text-xs sm:text-sm h-10 w-full bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-[var(--color-brand-500)]"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <Button
+          variant={showFilters ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          className="gap-2 h-10 px-4 text-xs font-semibold cursor-pointer rounded-xl border border-gray-200 shrink-0"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          More Filters
+          {hasAdvancedFilters && (
+            <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-[var(--color-brand-500)] text-white rounded-full leading-none">
+              !
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {/* Filter Panel (Secondary Filters) */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -431,7 +454,7 @@ export default function ProductsPage() {
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-[var(--color-app-border)]">
                   <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-app-muted)] flex items-center gap-1.5">
                     <SlidersHorizontal className="w-3.5 h-3.5 text-[var(--color-brand-600)]" />
-                    Product Filters
+                    Advanced Product Filters
                   </span>
                   {hasActiveFilters && (
                     <button
@@ -444,25 +467,11 @@ export default function ProductsPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Search */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                      <Search className="w-3.5 h-3.5 text-gray-400" /> Search Name / SKU
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="Type name or SKU..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Category Dropdown */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                      <Tag className="w-3.5 h-3.5 text-gray-400" /> Category
+                      <Tag className="w-3.5 h-3.5 text-gray-400" /> Filter by Category
                     </label>
                     <select
                       value={filterCategory || selectedFilterCategoryId}
@@ -525,7 +534,7 @@ export default function ProductsPage() {
         )}
       </AnimatePresence>
 
-      <Card>
+      <Card className="overflow-hidden border border-gray-200">
         <CardContent className="p-0 overflow-hidden">
           {loading ? (
             <div className="p-16 text-center">
@@ -539,7 +548,7 @@ export default function ProductsPage() {
               <Package className="w-12 h-12 mb-4 opacity-20" />
               {hasActiveFilters ? (
                 <>
-                  <p className="font-medium text-sm text-[var(--color-app-text)]">No products match your filters</p>
+                  <p className="font-medium text-sm text-[var(--color-app-text)]">No products match your search or filters</p>
                   <button
                     onClick={clearAllFilters}
                     className="mt-2 text-xs font-semibold text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] cursor-pointer"
@@ -553,23 +562,23 @@ export default function ProductsPage() {
             </div>
           ) : (
             <>
-              {/* MOBILE: Card list (< md) */}
-              <div className="md:hidden divide-y divide-[var(--color-app-border)]">
+              {/* MOBILE: Distinct Card list (< md) */}
+              <div className="md:hidden p-3 sm:p-4 space-y-3 bg-gray-50/50">
                 {sortedProducts.map((product) => (
                   <div
                     key={product.id}
                     onClick={() => isAdmin && handleOpenDetails(product.id)}
-                    className={`p-4 hover:bg-[var(--color-brand-50)]/40 active:bg-[var(--color-brand-50)] transition-colors ${
+                    className={`p-4 bg-white rounded-xl border border-gray-200 shadow-xs hover:border-[var(--color-brand-300)] hover:shadow-sm active:scale-[0.99] transition-all space-y-2.5 ${
                       isAdmin ? 'cursor-pointer' : ''
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm text-[var(--color-app-text)] truncate">
                           {product.name}
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
+                          <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[11px] font-medium">
                             {product.category?.name || 'Uncategorized'}
                           </span>
                           {product.sku && (
@@ -591,7 +600,7 @@ export default function ProductsPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between mt-3 pt-2 border-t border-[var(--color-app-border)] text-xs">
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
                       <div>
                         <span className="text-[var(--color-app-muted)] text-[10px] uppercase font-semibold block">Selling Price</span>
                         <span className="font-bold text-sm text-[var(--color-app-text)] font-mono">
@@ -600,8 +609,8 @@ export default function ProductsPage() {
                       </div>
 
                       {isAdmin && (
-                        <div className="flex items-center gap-1 text-xs text-[var(--color-brand-600)] font-medium">
-                          Details <ChevronRight className="w-4 h-4" />
+                        <div className="flex items-center gap-1 text-xs text-[var(--color-brand-600)] font-semibold">
+                          Details &amp; Ledger <ChevronRight className="w-4 h-4" />
                         </div>
                       )}
                     </div>
@@ -830,7 +839,7 @@ export default function ProductsPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="prodEstimatedCostPrice" className="text-xs font-semibold">Estimated Cost ($)</Label>
+                    <Label htmlFor="prodEstimatedCostPrice" className="text-xs font-semibold">Cost Price (CP) (₹)</Label>
                     <Input
                       id="prodEstimatedCostPrice"
                       type="number"
@@ -885,6 +894,9 @@ export default function ProductsPage() {
                 {!loadingDetails && detailsData && (
                   <p className="text-xs text-[var(--color-app-muted)] mt-1">
                     SKU: {detailsData.product.sku} | Category: {detailsData.product.category?.name || 'Uncategorized'}
+                    {detailsData.product.estimatedCostPrice != null && (
+                      <span className="font-medium text-emerald-700"> | CP: ₹{Number(detailsData.product.estimatedCostPrice).toFixed(2)}</span>
+                    )}
                   </p>
                 )}
               </div>
@@ -1027,7 +1039,7 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="editEstimatedCostPrice" className="text-xs font-semibold">Estimated Cost ($)</Label>
+                      <Label htmlFor="editEstimatedCostPrice" className="text-xs font-semibold">Cost Price (CP) (₹)</Label>
                       <Input
                         id="editEstimatedCostPrice"
                         type="number"

@@ -10,6 +10,24 @@ import { Button } from '@/components/ui/Button';
 import { apiFetch } from '@/lib/api-client';
 import { BillDetailModal } from '@/components/bills/BillDetailModal';
 
+type Product = {
+  id: string;
+  name: string;
+  sku?: string | null;
+  unit?: string;
+};
+
+type BillItem = {
+  id: string;
+  productId: string;
+  quantity: number;
+  sellingPricePerUnit: number;
+  costPricePerUnit: number;
+  taxRateApplied?: number | null;
+  lineTotal: number;
+  product?: Product | null;
+};
+
 type Customer = { id: string; name: string; phone?: string };
 type Bill = {
   id: string;
@@ -22,6 +40,7 @@ type Bill = {
   status: string;
   createdAt: string;
   customer: Customer | null;
+  items?: BillItem[];
 };
 
 type SortKey = 'createdAt' | 'billNumber' | 'customerName' | 'totalPayable' | 'amountPaid' | 'amountDue' | 'status';
@@ -110,7 +129,15 @@ export default function BillsPage() {
     // Apply filters
     if (filterBillId.trim()) {
       const q = filterBillId.trim().toLowerCase();
-      result = result.filter(b => b.billNumber.toLowerCase().includes(q));
+      result = result.filter(b =>
+        (b.billNumber || '').toLowerCase().includes(q) ||
+        (b.customer?.name && b.customer.name.toLowerCase().includes(q)) ||
+        (b.customer?.phone && b.customer.phone.toLowerCase().includes(q)) ||
+        b.items?.some(item =>
+          (item.product?.name && item.product.name.toLowerCase().includes(q)) ||
+          (item.product?.sku && item.product.sku.toLowerCase().includes(q))
+        )
+      );
     }
     if (filterDateFrom) {
       const from = new Date(filterDateFrom);
@@ -238,22 +265,7 @@ export default function BillsPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <Button
-            variant={showFilters ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="gap-2"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <span className="ml-1 px-1.5 py-0.5 text-[10px] font-bold bg-[var(--color-brand-500)] text-white rounded-full leading-none">
-                !
-              </span>
-            )}
-          </Button>
-
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <Link href="/dashboard/outbound">
             <Button size="sm" className="bg-[var(--color-brand-600)] hover:bg-[var(--color-brand-700)] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm">
               <PackageMinus className="w-4 h-4" />
@@ -263,7 +275,44 @@ export default function BillsPage() {
         </div>
       </div>
 
-      {/* Filter Panel */}
+      {/* Always Visible Search & Filters Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Input
+            type="text"
+            placeholder="Search by product name, SKU, customer, phone, or bill ref..."
+            value={filterBillId}
+            onChange={e => setFilterBillId(e.target.value)}
+            className="pl-9 pr-8 text-xs sm:text-sm h-10 w-full bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-[var(--color-brand-500)]"
+          />
+          {filterBillId && (
+            <button
+              onClick={() => setFilterBillId('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 rounded-full cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <Button
+          variant={showFilters ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          className="gap-2 h-10 px-4 text-xs font-semibold cursor-pointer rounded-xl border border-gray-200 shrink-0"
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          More Filters
+          {hasActiveFilters && (
+            <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-[var(--color-brand-500)] text-white rounded-full leading-none">
+              !
+            </span>
+          )}
+        </Button>
+      </div>
+
+      {/* Filter Panel (Secondary Filters) */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -275,27 +324,12 @@ export default function BillsPage() {
           >
             <Card>
               <CardContent className="p-5 pt-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-                  {/* Bill ID / Number */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium uppercase tracking-wider text-[var(--color-app-muted)] flex items-center gap-1.5">
-                      <Receipt className="w-3.5 h-3.5" />
-                      Bill ID / Ref No
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="e.g. BILL-172..."
-                      value={filterBillId}
-                      onChange={e => setFilterBillId(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {/* Customer Filter Dropdown */}
                   <div className="space-y-2">
                     <label className="text-xs font-medium uppercase tracking-wider text-[var(--color-app-muted)] flex items-center gap-1.5">
                       <Search className="w-3.5 h-3.5" />
-                      Customer
+                      Filter by Customer
                     </label>
                     <select
                       value={filterCustomer}
@@ -405,8 +439,8 @@ export default function BillsPage() {
         )}
       </AnimatePresence>
 
-      {/* Table */}
-      <Card>
+      {/* Table & Cards */}
+      <Card className="overflow-hidden border border-gray-200">
         <CardContent className="p-0 overflow-hidden">
           {loading ? (
             <div className="p-16 text-center">
@@ -420,7 +454,7 @@ export default function BillsPage() {
               <Receipt className="w-12 h-12 mb-4 opacity-20" />
               {hasActiveFilters ? (
                 <>
-                  <p className="font-medium">No bills match your filters</p>
+                  <p className="font-medium">No bills match your search or filters</p>
                   <button
                     onClick={clearAllFilters}
                     className="mt-2 text-sm text-[var(--color-brand-600)] hover:text-[var(--color-brand-700)] font-medium cursor-pointer"
@@ -441,33 +475,41 @@ export default function BillsPage() {
             </div>
           ) : (
             <>
-              {/* MOBILE: Card list (< md) */}
-              <div className="md:hidden divide-y divide-[var(--color-app-border)]">
+              {/* MOBILE: Distinct Card list (< md) */}
+              <div className="md:hidden p-3 sm:p-4 space-y-3 bg-gray-50/50">
                 {filteredAndSorted.map((bill, idx) => {
                   const status = STATUS_STYLES[bill.status] || STATUS_STYLES.due;
                   return (
                     <motion.div
                       key={bill.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: Math.min(idx * 0.02, 0.3) }}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(idx * 0.02, 0.2) }}
                       onClick={() => setSelectedBillId(bill.id)}
-                      className="p-4 hover:bg-[var(--color-brand-50)]/40 active:bg-[var(--color-brand-50)] transition-colors cursor-pointer"
+                      className="p-4 bg-white rounded-xl border border-gray-200 shadow-xs hover:border-[var(--color-brand-300)] hover:shadow-sm active:scale-[0.99] transition-all cursor-pointer space-y-2.5"
                     >
-                      <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-sm text-[var(--color-app-text)] truncate">
                             {bill.customer ? bill.customer.name : <span className="italic text-[var(--color-app-muted)]">Walk-in</span>}
                           </div>
-                          <div className="text-xs text-[var(--color-app-muted)] mt-0.5">
-                            {formatDate(bill.createdAt)} • {formatTime(bill.createdAt)}
+                          <div className="text-xs text-[var(--color-app-muted)] mt-0.5 font-mono">
+                            {bill.billNumber} • {formatDate(bill.createdAt)} {formatTime(bill.createdAt)}
                           </div>
                         </div>
                         <span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${status.bg} ${status.text}`}>
                           {status.label}
                         </span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
+                      {bill.items && bill.items.length > 0 && (
+                        <div className="text-xs text-gray-700 bg-gray-50/90 border border-gray-100 rounded-lg p-2.5">
+                          <span className="font-semibold text-[10px] text-gray-400 uppercase mr-1.5 block mb-0.5">Products:</span>
+                          <span className="leading-relaxed">
+                            {bill.items.map(i => `${i.product?.name || 'Product'} (x${i.quantity})`).join(', ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100 text-xs">
                         <div>
                           <div className="text-[var(--color-app-muted)] text-[10px] uppercase font-semibold mb-0.5">Total</div>
                           <div className="font-bold tabular-nums text-[var(--color-app-text)]">{formatCurrency(bill.totalPayable)}</div>
@@ -527,7 +569,15 @@ export default function BillsPage() {
                                 )}
                               </div>
                             ) : (
-                              <span className="text-[var(--color-app-muted)] italic">Walk-in</span>
+                              <span className="text-[var(--color-app-muted)] italic font-medium">Walk-in</span>
+                            )}
+                            {bill.items && bill.items.length > 0 && (
+                              <div
+                                className="text-[11px] text-gray-500 mt-1 line-clamp-1 max-w-xs"
+                                title={bill.items.map((i) => `${i.product?.name || 'Product'} (x${i.quantity})`).join(', ')}
+                              >
+                                {bill.items.map((i) => `${i.product?.name || 'Product'} (x${i.quantity})`).join(', ')}
+                              </div>
                             )}
                           </td>
                           <td className="px-5 py-3.5 text-right font-semibold text-[var(--color-app-text)] tabular-nums">

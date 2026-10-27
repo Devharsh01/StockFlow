@@ -1,6 +1,6 @@
 import { db } from '@/db';
 import { products } from '@/db/schema';
-import { eq, and, or, ilike } from 'drizzle-orm';
+import { eq, and, or, ilike, asc } from 'drizzle-orm';
 import { requirePermission } from '@/lib/permissions';
 import { successResponse, errorResponse } from '@/lib/api-response';
 
@@ -10,30 +10,42 @@ export async function GET(request: Request) {
     if (!authorized) return errorResponse(error!, 403);
 
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q') || '';
+    const query = (searchParams.get('q') || '').trim();
 
-    if (!query) {
-      return successResponse([]);
-    }
+    const whereCondition = query
+      ? and(
+          eq(products.storeId, user!.storeId),
+          eq(products.active, true),
+          or(
+            ilike(products.name, `%${query}%`),
+            ilike(products.sku, `%${query}%`)
+          )
+        )
+      : and(
+          eq(products.storeId, user!.storeId),
+          eq(products.active, true)
+        );
 
     const results = await db.query.products.findMany({
-      where: and(
-        eq(products.storeId, user!.storeId),
-        eq(products.active, true),
-        or(
-          ilike(products.name, `%${query}%`),
-          ilike(products.sku, `%${query}%`)
-        )
-      ),
+      where: whereCondition,
       limit: 10,
+      orderBy: (p, { asc }) => [asc(p.name)],
     });
 
-    const formatted = results.map(p => ({
-      id: p.id,
-      label: p.name,
-      subLabel: p.sku ? `SKU: ${p.sku} | Stock: ${p.currentStockQty}` : `Stock: ${p.currentStockQty}`,
-      sellingPrice: p.sellingPrice,
-    }));
+    const formatted = results.map(p => {
+      const cpText = p.estimatedCostPrice != null ? ` | CP: ₹${Number(p.estimatedCostPrice).toFixed(2)}` : '';
+      return {
+        id: p.id,
+        label: p.name,
+        name: p.name,
+        sku: p.sku,
+        unit: p.unit,
+        subLabel: p.sku ? `SKU: ${p.sku} | Stock: ${p.currentStockQty}${cpText}` : `Stock: ${p.currentStockQty}${cpText}`,
+        sellingPrice: p.sellingPrice,
+        estimatedCostPrice: p.estimatedCostPrice,
+        costPrice: p.estimatedCostPrice,
+      };
+    });
 
     return successResponse(formatted);
   } catch (error) {

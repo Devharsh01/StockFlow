@@ -12,6 +12,11 @@ export async function GET(request: Request) {
       orderBy: (bills, { desc }) => [desc(bills.createdAt)],
       with: {
         customer: true,
+        items: {
+          with: {
+            product: true,
+          },
+        },
       }
     });
 

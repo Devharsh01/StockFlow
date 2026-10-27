@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { authorized, error } = await requirePermission(request, 'canManageProducts');
+    const { authorized, error } = await requirePermission(request, ['canManageProducts', 'canRecordStockIn', 'canCreateBills']);
     if (!authorized) return errorResponse(error!, 403);
 
     const body = await request.json();

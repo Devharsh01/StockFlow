@@ -34,14 +34,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (!authorized) return errorResponse(error!, 403);
 
     const body = await request.json();
-    const { name, sku, unit, sellingPrice, taxRate, estimatedCostPrice, categoryId } = body;
+    const { name, sku, unit, sellingPrice, taxRate, estimatedCostPrice, costPrice, categoryId } = body;
 
     if (!name || !unit || sellingPrice == null || !sku || !categoryId) {
       return errorResponse('Missing required product fields (SKU/Barcode and Category are compulsory)');
     }
 
+    const updateData: Record<string, any> = { name, sku, unit, sellingPrice, taxRate, categoryId };
+    if (estimatedCostPrice !== undefined) {
+      updateData.estimatedCostPrice = estimatedCostPrice;
+    } else if (costPrice !== undefined) {
+      updateData.estimatedCostPrice = costPrice;
+    }
+
     const [updatedProduct] = await db.update(products)
-      .set({ name, sku, unit, sellingPrice, taxRate, estimatedCostPrice, categoryId })
+      .set(updateData)
       .where(and(eq(products.id, id), eq(products.storeId, user!.storeId)))
       .returning();
 

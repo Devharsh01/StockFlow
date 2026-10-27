@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingCart, Search, Plus, Minus, Trash2, LayoutGrid, List, X, ChevronUp } from 'lucide-react';
+import { ShoppingCart, Search, Plus, Minus, Trash2, LayoutGrid, List, X, ChevronUp, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input, Label } from '@/components/ui/Input';
+import { CreateProductModal, ProductInitialData } from '@/components/products/CreateProductModal';
 import { apiFetch } from '@/lib/api-client';
 
 type Product = { id: string, name: string, sku: string, sellingPrice: number, currentStockQty: number };
@@ -20,6 +21,10 @@ export default function OutboundPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMobileCart, setShowMobileCart] = useState(false);
 
+  // Create Product Modal State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createInitialData, setCreateInitialData] = useState<ProductInitialData | undefined>(undefined);
+
   // Customer & Payment States
   const [customers, setCustomers] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
@@ -33,6 +38,35 @@ export default function OutboundPage() {
   const [isPartialPayment, setIsPartialPayment] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [showUpiQr, setShowUpiQr] = useState(false);
+
+  const handleOpenCreateProduct = (searchQuery?: string) => {
+    setCreateInitialData({
+      name: searchQuery || search.trim() || '',
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleProductCreated = (newProduct: any) => {
+    const formattedProd: Product = {
+      id: newProduct.id,
+      name: newProduct.name,
+      sku: newProduct.sku,
+      sellingPrice: Number(newProduct.sellingPrice),
+      currentStockQty: newProduct.currentStockQty || 0,
+    };
+
+    setProducts((prev) => {
+      const exists = prev.some((p) => p.id === formattedProd.id);
+      if (exists) return prev;
+      return [...prev, formattedProd].sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    // Automatically add to active cart
+    addToCart(formattedProd);
+
+    // Refresh products catalog in background
+    fetchProducts();
+  };
 
   useEffect(() => {
     fetchProducts();
@@ -283,21 +317,32 @@ export default function OutboundPage() {
               Point of Sale
             </h1>
           </div>
-          <div className="flex bg-gray-100 rounded-lg p-1 border border-[var(--color-app-border)] shrink-0">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-[var(--color-brand-600)]' : 'text-[var(--color-app-muted)] hover:text-[var(--color-app-text)]'}`}
-              title="Grid View"
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              onClick={() => handleOpenCreateProduct(search.trim())}
+              className="gap-1.5 text-xs font-bold cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-[var(--color-brand-600)]' : 'text-[var(--color-app-muted)] hover:text-[var(--color-app-text)]'}`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
-            </button>
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Product</span>
+            </Button>
+
+            <div className="flex bg-gray-100 rounded-lg p-1 border border-[var(--color-app-border)]">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-[var(--color-brand-600)]' : 'text-[var(--color-app-muted)] hover:text-[var(--color-app-text)]'}`}
+                title="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-[var(--color-brand-600)]' : 'text-[var(--color-app-muted)] hover:text-[var(--color-app-text)]'}`}
+                title="List View"
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -333,8 +378,22 @@ export default function OutboundPage() {
                 </div>
               ))}
               {filteredProducts.length === 0 && (
-                <div className="col-span-full py-12 text-center text-[var(--color-app-muted)]">
-                  No products found.
+                <div className="col-span-full py-12 flex flex-col items-center justify-center text-center">
+                  <Package className="w-10 h-10 text-gray-300 mb-2" />
+                  <p className="text-sm font-semibold text-gray-700 mb-1">
+                    {search.trim() ? `No product found for "${search.trim()}"` : 'No products in catalog.'}
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4 max-w-xs">
+                    Create this product now and it will be added to your current order automatically.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleOpenCreateProduct(search.trim())}
+                    className="text-xs font-bold gap-1.5 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {search.trim() ? `Create "${search.trim()}" Product` : 'Create New Product'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -359,8 +418,22 @@ export default function OutboundPage() {
                 </div>
               ))}
               {filteredProducts.length === 0 && (
-                <div className="py-12 text-center text-[var(--color-app-muted)]">
-                  No products found.
+                <div className="py-12 flex flex-col items-center justify-center text-center">
+                  <Package className="w-10 h-10 text-gray-300 mb-2" />
+                  <p className="text-sm font-semibold text-gray-700 mb-1">
+                    {search.trim() ? `No product found for "${search.trim()}"` : 'No products in catalog.'}
+                  </p>
+                  <p className="text-xs text-gray-500 mb-4 max-w-xs">
+                    Create this product now and it will be added to your current order automatically.
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleOpenCreateProduct(search.trim())}
+                    className="text-xs font-bold gap-1.5 cursor-pointer bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {search.trim() ? `Create "${search.trim()}" Product` : 'Create New Product'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -700,6 +773,17 @@ export default function OutboundPage() {
           </motion.div>
         </div>
       )}
+
+      {/* Inline Create Product Modal */}
+      <CreateProductModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSuccess={handleProductCreated}
+        initialData={createInitialData}
+        context="outbound"
+        title="Create & Add Product to Order"
+        subtitle="Add product to catalog and add to current POS cart immediately"
+      />
     </motion.div>
   );
 }
